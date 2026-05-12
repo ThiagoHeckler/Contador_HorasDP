@@ -1,0 +1,11 @@
+{
+  "name": "contador-horas-dp",
+  "version": "1.0.0",
+  "description": "Contador de Horas Semestral para Departamento Pessoal",
+  "private": true,
+  "scripts": {
+    "backend": "node backend/server.js",
+    "frontend": "npm --prefix frontend run dev",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+  }
+}
