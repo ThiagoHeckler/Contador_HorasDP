@@ -418,9 +418,94 @@ tbody td {
   padding: 2rem;
 }
 
+/* ── Cards de mês (lançamento HH:MM) ── */
+.horas-grid-lancamento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mes-card {
+  border: 1.5px solid var(--cinza-200);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  background: var(--cinza-50);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: border-color var(--transicao);
+}
+.mes-card.credito { border-color: #a3d9b5; background: #f6fdf8; }
+.mes-card.debito  { border-color: #f1aeb5; background: #fff8f8; }
+
+.mes-nome {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--azul-escuro);
+}
+
+.mes-tipo-toggle {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.tipo-btn {
+  flex: 1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.28rem 0.3rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--cinza-200);
+  background: var(--branco);
+  color: var(--cinza-600);
+  transition: all var(--transicao);
+}
+.tipo-btn.credito.ativo {
+  background: var(--verde-bg);
+  color: var(--verde);
+  border-color: #a3d9b5;
+}
+.tipo-btn.debito.ativo {
+  background: var(--vermelho-bg);
+  color: var(--vermelho);
+  border-color: #f1aeb5;
+}
+
+.mes-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+.mes-inputs .form-group { flex: 1; }
+.mes-inputs input { text-align: center; padding: 0.4rem 0.25rem; }
+
+.sep-hhmm {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--cinza-400);
+  padding-bottom: 0.35rem;
+  line-height: 1;
+}
+
+.mes-total {
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  padding-top: 0.1rem;
+}
+.mes-total.credito { color: var(--verde); }
+.mes-total.debito  { color: var(--vermelho); }
+
 /* ── Responsivo ── */
+@media (max-width: 700px) {
+  .horas-grid-lancamento { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 600px) {
   .horas-grid { grid-template-columns: repeat(2, 1fr); }
+  .horas-grid-lancamento { grid-template-columns: repeat(2, 1fr); }
   .form-grid { grid-template-columns: 1fr; }
   .header-brand span:not(.icon) { display: none; }
   .main-content { padding: 1rem; }

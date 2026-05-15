@@ -76,8 +76,8 @@ app.get('/api/registros/:id', (req, res) => {
 });
 
 app.post('/api/registros', (req, res) => {
-  const { funcionarioId, semestre, ano, horas } = req.body;
-  if (!funcionarioId || !semestre || !ano || !horas) {
+  const { funcionarioId, semestre, ano, minutos } = req.body;
+  if (!funcionarioId || !semestre || !ano || !minutos) {
     return res.status(400).json({ erro: 'Dados incompletos' });
   }
   const dados = lerDados();
@@ -85,10 +85,10 @@ app.post('/api/registros', (req, res) => {
   if (!func) return res.status(404).json({ erro: 'Funcionário não encontrado' });
 
   const meses = MESES_SEMESTRE[semestre];
-  const horasValidas = {};
-  meses.forEach(mes => { horasValidas[mes] = Number(horas[mes]) || 0; });
+  const minutosValidos = {};
+  meses.forEach(mes => { minutosValidos[mes] = Math.round(Number(minutos[mes])) || 0; });
 
-  const totalHoras = Object.values(horasValidas).reduce((acc, h) => acc + h, 0);
+  const totalMinutos = Object.values(minutosValidos).reduce((acc, m) => acc + m, 0);
 
   const duplicado = dados.registros.find(r => r.funcionarioId === funcionarioId && r.semestre === Number(semestre) && r.ano === Number(ano));
   if (duplicado) {
@@ -100,9 +100,9 @@ app.post('/api/registros', (req, res) => {
     funcionarioId,
     semestre: Number(semestre),
     ano: Number(ano),
-    horas: horasValidas,
-    totalHoras,
-    resultado: totalHoras >= 0 ? 'positivo' : 'negativo',
+    minutos: minutosValidos,
+    totalMinutos,
+    resultado: totalMinutos >= 0 ? 'positivo' : 'negativo',
     criadoEm: new Date().toISOString(),
   };
   dados.registros.push(registro);
@@ -111,18 +111,18 @@ app.post('/api/registros', (req, res) => {
 });
 
 app.put('/api/registros/:id', (req, res) => {
-  const { horas } = req.body;
+  const { minutos } = req.body;
   const dados = lerDados();
   const idx = dados.registros.findIndex(r => r.id === req.params.id);
   if (idx === -1) return res.status(404).json({ erro: 'Registro não encontrado' });
 
   const registro = dados.registros[idx];
   const meses = MESES_SEMESTRE[registro.semestre];
-  const horasValidas = {};
-  meses.forEach(mes => { horasValidas[mes] = Number(horas[mes]) || 0; });
-  const totalHoras = Object.values(horasValidas).reduce((acc, h) => acc + h, 0);
+  const minutosValidos = {};
+  meses.forEach(mes => { minutosValidos[mes] = Math.round(Number(minutos[mes])) || 0; });
+  const totalMinutos = Object.values(minutosValidos).reduce((acc, m) => acc + m, 0);
 
-  dados.registros[idx] = { ...registro, horas: horasValidas, totalHoras, resultado: totalHoras >= 0 ? 'positivo' : 'negativo' };
+  dados.registros[idx] = { ...registro, minutos: minutosValidos, totalMinutos, resultado: totalMinutos >= 0 ? 'positivo' : 'negativo' };
   salvarDados(dados);
 
   const func = dados.funcionarios.find(f => f.id === registro.funcionarioId);
@@ -137,6 +137,14 @@ app.delete('/api/registros/:id', (req, res) => {
   salvarDados(dados);
   res.json({ mensagem: 'Registro removido' });
 });
+
+function formatarHHMM(totalMin) {
+  const neg = totalMin < 0;
+  const abs = Math.abs(totalMin);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return (neg ? '-' : '') + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
 
 // Exportar Excel
 app.get('/api/exportar/:id', async (req, res) => {
@@ -197,7 +205,7 @@ app.get('/api/exportar/:id', async (req, res) => {
 
   sheet.addRow([]);
 
-  const headerRow = sheet.addRow(['Mês', 'Horas', 'Observação']);
+  const headerRow = sheet.addRow(['Mês', 'Horas (HH:MM)', 'Observação']);
   headerRow.eachCell(cell => {
     Object.assign(cell, estilo(true, 12, 'FFFFFFFF', corSubHeader));
   });
@@ -205,9 +213,9 @@ app.get('/api/exportar/:id', async (req, res) => {
 
   const meses = MESES_SEMESTRE[registro.semestre];
   meses.forEach((mes, i) => {
-    const horas = registro.horas[mes] || 0;
-    const obs = horas > 0 ? 'Crédito' : horas < 0 ? 'Débito' : 'Neutro';
-    const row = sheet.addRow([mes, horas, obs]);
+    const min = registro.minutos[mes] || 0;
+    const obs = min > 0 ? 'Crédito' : min < 0 ? 'Débito' : 'Neutro';
+    const row = sheet.addRow([mes, formatarHHMM(min), obs]);
     const bg = i % 2 === 0 ? 'FFFFFFFF' : corAlternada;
     row.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
@@ -220,7 +228,7 @@ app.get('/api/exportar/:id', async (req, res) => {
 
   sheet.addRow([]);
 
-  const totalRow = sheet.addRow(['TOTAL DE HORAS', registro.totalHoras, registro.resultado === 'positivo' ? '✔ Saldo Positivo' : '✖ Saldo Negativo']);
+  const totalRow = sheet.addRow(['TOTAL DE HORAS', formatarHHMM(registro.totalMinutos), registro.resultado === 'positivo' ? '✔ Saldo Positivo' : '✖ Saldo Negativo']);
   const corTotal = registro.resultado === 'positivo' ? corPositivo : corNegativo;
   totalRow.eachCell(cell => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corTotal.replace('#', '') } };
@@ -232,7 +240,7 @@ app.get('/api/exportar/:id', async (req, res) => {
   totalRow.height = 28;
 
   sheet.getColumn(1).width = 22;
-  sheet.getColumn(2).width = 16;
+  sheet.getColumn(2).width = 18;
   sheet.getColumn(3).width = 22;
 
   const nomeArquivo = `horas_${nomeFuncionario.replace(/\s+/g, '_')}_${registro.semestre}S${registro.ano}.xlsx`;
@@ -267,14 +275,14 @@ app.get('/api/exportar-todos', async (req, res) => {
   dados.registros.forEach((r, i) => {
     const func = dados.funcionarios.find(f => f.id === r.funcionarioId);
     const meses = MESES_SEMESTRE[r.semestre];
-    const horasMeses = meses.map(m => r.horas[m] || 0);
+    const minMeses = meses.map(m => formatarHHMM(r.minutos?.[m] || 0));
     const row = sheet.addRow([
       func?.nome || '',
       func?.matricula || '',
       `${r.semestre}º Semestre`,
       r.ano,
-      ...horasMeses,
-      r.totalHoras,
+      ...minMeses,
+      formatarHHMM(r.totalMinutos || 0),
       r.resultado === 'positivo' ? 'Positivo' : 'Negativo',
     ]);
     const bg = i % 2 === 0 ? 'FFFFFFFF' : 'EBF3FB';

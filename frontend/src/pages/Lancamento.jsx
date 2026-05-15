@@ -10,15 +10,34 @@ const MESES = {
 const anoAtual = new Date().getFullYear()
 const ANOS = Array.from({ length: 6 }, (_, i) => anoAtual - 2 + i)
 
-function horasIniciais(semestre) {
-  return Object.fromEntries(MESES[semestre].map(m => [m, '']))
+function estadoMesInicial() {
+  return { tipo: 'credito', horas: '', minutos: '' }
+}
+
+function estadosMesesIniciais(semestre) {
+  return Object.fromEntries(MESES[semestre].map(m => [m, estadoMesInicial()]))
+}
+
+function paraMinutos(estado) {
+  const h = parseInt(estado.horas) || 0
+  const m = parseInt(estado.minutos) || 0
+  const total = h * 60 + m
+  return estado.tipo === 'debito' ? -total : total
+}
+
+export function formatarHHMM(totalMin) {
+  const neg = totalMin < 0
+  const abs = Math.abs(totalMin)
+  const h = Math.floor(abs / 60)
+  const m = abs % 60
+  return (neg ? '-' : '') + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')
 }
 
 export default function Lancamento() {
   const navigate = useNavigate()
   const [funcionarios, setFuncionarios] = useState([])
   const [form, setForm] = useState({ funcionarioId: '', semestre: '1', ano: String(anoAtual) })
-  const [horas, setHoras] = useState(horasIniciais(1))
+  const [estados, setEstados] = useState(estadosMesesIniciais(1))
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [loadingFunc, setLoadingFunc] = useState(true)
@@ -33,27 +52,37 @@ export default function Lancamento() {
   function handleSemestre(e) {
     const sem = e.target.value
     setForm(p => ({ ...p, semestre: sem }))
-    setHoras(horasIniciais(Number(sem)))
+    setEstados(estadosMesesIniciais(Number(sem)))
   }
 
-  function handleHora(mes, valor) {
-    setHoras(p => ({ ...p, [mes]: valor }))
+  function handleEstado(mes, campo, valor) {
+    setEstados(p => ({ ...p, [mes]: { ...p[mes], [campo]: valor } }))
+  }
+
+  function handleMinutos(mes, valor) {
+    // Garante 0-59
+    const num = parseInt(valor)
+    if (isNaN(num)) { handleEstado(mes, 'minutos', ''); return }
+    handleEstado(mes, 'minutos', String(Math.min(59, Math.max(0, num))))
   }
 
   const mesesAtivos = MESES[Number(form.semestre)]
-
-  const horasNumericas = Object.fromEntries(
-    mesesAtivos.map(m => [m, horas[m] === '' ? 0 : Number(horas[m])])
-  )
-  const total = Object.values(horasNumericas).reduce((acc, h) => acc + h, 0)
+  const totalMinutos = mesesAtivos.reduce((acc, m) => acc + paraMinutos(estados[m]), 0)
+  const resultado = totalMinutos >= 0 ? 'positivo' : 'negativo'
 
   async function salvar(e) {
     e.preventDefault()
     setErro('')
     if (!form.funcionarioId) { setErro('Selecione um funcionário.'); return }
+    const minutosPayload = Object.fromEntries(mesesAtivos.map(m => [m, paraMinutos(estados[m])]))
     setSalvando(true)
     try {
-      await criarRegistro({ ...form, semestre: Number(form.semestre), ano: Number(form.ano), horas: horasNumericas })
+      await criarRegistro({
+        ...form,
+        semestre: Number(form.semestre),
+        ano: Number(form.ano),
+        minutos: minutosPayload,
+      })
       navigate('/registros')
     } catch (e) {
       setErro(e.message)
@@ -64,11 +93,9 @@ export default function Lancamento() {
 
   function limpar() {
     setForm({ funcionarioId: '', semestre: '1', ano: String(anoAtual) })
-    setHoras(horasIniciais(1))
+    setEstados(estadosMesesIniciais(1))
     setErro('')
   }
-
-  const resultado = total >= 0 ? 'positivo' : 'negativo'
 
   return (
     <div>
@@ -100,7 +127,8 @@ export default function Lancamento() {
               )}
               {!loadingFunc && funcionarios.length === 0 && (
                 <p style={{ fontSize: '0.82rem', color: 'var(--cinza-400)', marginTop: '0.3rem' }}>
-                  Nenhum funcionário cadastrado. <a href="/" style={{ color: 'var(--azul-medio)' }}>Cadastre um.</a>
+                  Nenhum funcionário cadastrado.{' '}
+                  <a href="/" style={{ color: 'var(--azul-medio)' }}>Cadastre um.</a>
                 </p>
               )}
             </div>
@@ -123,35 +151,75 @@ export default function Lancamento() {
         </div>
 
         <div className="card">
-          <div className="card-title" style={{ marginBottom: '0.5rem' }}>
-            Horas por Mês
-            <span style={{ fontSize: '0.78rem', fontWeight: 400, color: 'var(--cinza-400)', marginLeft: '0.5rem' }}>
-              (valores negativos = débito)
-            </span>
-          </div>
+          <div className="card-title" style={{ marginBottom: '0.25rem' }}>Horas por Mês</div>
+          <p style={{ fontSize: '0.82rem', color: 'var(--cinza-400)', marginBottom: '1rem' }}>
+            Selecione Crédito ou Débito e informe as horas e minutos de cada mês.
+          </p>
 
-          <div className="horas-grid">
-            {mesesAtivos.map(mes => (
-              <div className="hora-item form-group" key={mes}>
-                <label htmlFor={`h-${mes}`}>{mes}</label>
-                <input
-                  id={`h-${mes}`}
-                  type="number"
-                  step="0.5"
-                  placeholder="0"
-                  value={horas[mes]}
-                  onChange={e => handleHora(mes, e.target.value)}
-                />
-              </div>
-            ))}
+          <div className="horas-grid-lancamento">
+            {mesesAtivos.map(mes => {
+              const est = estados[mes]
+              const minTotal = paraMinutos(est)
+              return (
+                <div key={mes} className={`mes-card ${est.tipo}`}>
+                  <div className="mes-nome">{mes}</div>
+
+                  <div className="mes-tipo-toggle">
+                    <button
+                      type="button"
+                      className={`tipo-btn credito${est.tipo === 'credito' ? ' ativo' : ''}`}
+                      onClick={() => handleEstado(mes, 'tipo', 'credito')}
+                    >
+                      + Crédito
+                    </button>
+                    <button
+                      type="button"
+                      className={`tipo-btn debito${est.tipo === 'debito' ? ' ativo' : ''}`}
+                      onClick={() => handleEstado(mes, 'tipo', 'debito')}
+                    >
+                      − Débito
+                    </button>
+                  </div>
+
+                  <div className="mes-inputs">
+                    <div className="form-group">
+                      <label htmlFor={`h-${mes}`}>Horas</label>
+                      <input
+                        id={`h-${mes}`}
+                        type="number"
+                        min="0"
+                        placeholder="00"
+                        value={est.horas}
+                        onChange={e => handleEstado(mes, 'horas', e.target.value)}
+                      />
+                    </div>
+                    <span className="sep-hhmm">:</span>
+                    <div className="form-group">
+                      <label htmlFor={`m-${mes}`}>Min</label>
+                      <input
+                        id={`m-${mes}`}
+                        type="number"
+                        min="0"
+                        max="59"
+                        placeholder="00"
+                        value={est.minutos}
+                        onChange={e => handleMinutos(mes, e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={`mes-total ${est.tipo}`}>
+                    {minTotal !== 0 ? (est.tipo === 'debito' ? '-' : '+') : ''}{formatarHHMM(Math.abs(minTotal))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           <div className={`resultado-box ${resultado}`}>
             <div>
               <div className="resultado-label">Total Semestral</div>
-              <div className="resultado-valor">
-                {total > 0 ? '+' : ''}{total.toFixed(1)} h
-              </div>
+              <div className="resultado-valor">{formatarHHMM(totalMinutos)}</div>
             </div>
             <span className={`badge badge-${resultado}`} style={{ fontSize: '0.88rem', padding: '0.4rem 1rem' }}>
               {resultado === 'positivo' ? '✔ Saldo Positivo' : '✖ Saldo Negativo'}
