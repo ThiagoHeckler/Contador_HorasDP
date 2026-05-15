@@ -19,6 +19,7 @@ const MESES_SEMESTRE = {
 
 function lerDados() {
   if (!fs.existsSync(DATA_FILE)) {
+    fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
     fs.writeFileSync(DATA_FILE, JSON.stringify({ funcionarios: [], registros: [] }, null, 2));
   }
   return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
