@@ -251,19 +251,30 @@ app.get('/api/exportar/:id', async (req, res) => {
   res.end();
 });
 
-// Exportar todos os registros em um único Excel
+// Exportar todos os registros em um único Excel (com filtro opcional por semestre e ano)
 app.get('/api/exportar-todos', async (req, res) => {
   const dados = lerDados();
-  if (dados.registros.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado' });
+  const semestreFiltro = req.query.semestre ? Number(req.query.semestre) : null;
+  const anoFiltro = req.query.ano ? Number(req.query.ano) : null;
+
+  let registrosFiltrados = dados.registros;
+  if (semestreFiltro) registrosFiltrados = registrosFiltrados.filter(r => r.semestre === semestreFiltro);
+  if (anoFiltro) registrosFiltrados = registrosFiltrados.filter(r => r.ano === anoFiltro);
+
+  if (registrosFiltrados.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado para os filtros aplicados' });
+
+  const mesesHeader = semestreFiltro
+    ? MESES_SEMESTRE[semestreFiltro]
+    : Object.values(MESES_SEMESTRE).flat().slice(0, 6);
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Contador HorasDP';
   workbook.created = new Date();
 
-  const sheet = workbook.addWorksheet('Todos os Registros');
+  const sheet = workbook.addWorksheet('Registros de Horas');
   const corHeader = '1F3A5F';
 
-  const headerRow = sheet.addRow(['Funcionário', 'Matrícula', 'Semestre', 'Ano', ...Object.values(MESES_SEMESTRE).flat().slice(0, 6), 'Total', 'Resultado']);
+  const headerRow = sheet.addRow(['Funcionário', 'Matrícula', 'Semestre', 'Ano', ...mesesHeader, 'Total', 'Resultado']);
   headerRow.eachCell(cell => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corHeader } };
@@ -272,7 +283,7 @@ app.get('/api/exportar-todos', async (req, res) => {
   });
   headerRow.height = 28;
 
-  dados.registros.forEach((r, i) => {
+  registrosFiltrados.forEach((r, i) => {
     const func = dados.funcionarios.find(f => f.id === r.funcionarioId);
     const meses = MESES_SEMESTRE[r.semestre];
     const minMeses = meses.map(m => formatarHHMM(r.minutos?.[m] || 0));
@@ -297,8 +308,11 @@ app.get('/api/exportar-todos', async (req, res) => {
   sheet.columns.forEach(col => { col.width = 18; });
   sheet.getColumn(1).width = 28;
 
+  const sufixo = [semestreFiltro ? `${semestreFiltro}S` : '', anoFiltro || ''].filter(Boolean).join('_');
+  const nomeArquivo = `registros_horas${sufixo ? `_${sufixo}` : ''}.xlsx`;
+
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="todos_registros_horas.xlsx"');
+  res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
   await workbook.xlsx.write(res);
   res.end();
 });
