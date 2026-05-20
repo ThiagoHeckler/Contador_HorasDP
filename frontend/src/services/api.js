@@ -31,4 +31,11 @@ export const deletarRegistro = (id) => request(`/registros/${id}`, { method: 'DE
 
 // Exportação Excel
 export const urlExportarRegistro = (id) => `${BASE}/exportar/${id}`
-export const urlExportarTodos = (empresaId) => `${BASE}/exportar-todos${empresaId ? `?empresaId=${empresaId}` : ''}`
+export function urlExportarTodos(empresaId, { semestre, ano } = {}) {
+  const params = new URLSearchParams()
+  if (empresaId) params.set('empresaId', empresaId)
+  if (semestre) params.set('semestre', semestre)
+  if (ano) params.set('ano', ano)
+  const qs = params.toString()
+  return `${BASE}/exportar-todos${qs ? `?${qs}` : ''}`
+}

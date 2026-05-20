@@ -355,23 +355,30 @@ app.get('/api/exportar/:id', async (req, res) => {
   res.end();
 });
 
-// ── Exportar todos (por empresa) ──────────────────────────────────────────────
+// ── Exportar todos (por empresa, com filtros opcionais de semestre e ano) ──────
 
 app.get('/api/exportar-todos', async (req, res) => {
   const { empresaId } = req.query;
+  const semestreFiltro = req.query.semestre ? Number(req.query.semestre) : null;
+  const anoFiltro = req.query.ano ? Number(req.query.ano) : null;
+
   const dados = lerDados();
   let lista = dados.registros;
   if (empresaId) lista = lista.filter(r => r.empresaId === empresaId);
-  if (lista.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado' });
+  if (semestreFiltro) lista = lista.filter(r => r.semestre === semestreFiltro);
+  if (anoFiltro) lista = lista.filter(r => r.ano === anoFiltro);
+  if (lista.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado para os filtros aplicados' });
+
+  const mesesHeader = semestreFiltro ? MESES_SEMESTRE[semestreFiltro] : MESES_SEMESTRE[1];
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Contador HorasDP';
   workbook.created = new Date();
-  const sheet = workbook.addWorksheet('Todos os Registros');
+  const sheet = workbook.addWorksheet('Registros de Horas');
   const corHeader = '1F3A5F';
 
   const headerRow = sheet.addRow(['Empresa', 'Funcionário', 'Matrícula', 'Semestre', 'Ano',
-    ...MESES_SEMESTRE[1], 'Total', 'Resultado']);
+    ...mesesHeader, 'Total', 'Resultado']);
   headerRow.eachCell(cell => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corHeader } };
@@ -407,8 +414,11 @@ app.get('/api/exportar-todos', async (req, res) => {
   sheet.getColumn(1).width = 28;
   sheet.getColumn(2).width = 28;
 
+  const sufixo = [semestreFiltro ? `${semestreFiltro}S` : '', anoFiltro || ''].filter(Boolean).join('_');
+  const nomeArquivo = `registros_horas${sufixo ? `_${sufixo}` : ''}.xlsx`;
+
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="todos_registros_horas.xlsx"');
+  res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
   await workbook.xlsx.write(res);
   res.end();
 });

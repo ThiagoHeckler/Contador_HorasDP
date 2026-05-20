@@ -34,6 +34,7 @@ export default function Registros() {
   const [erro, setErro] = useState('')
   const [filtroBusca, setFiltroBusca] = useState('')
   const [filtroSemestre, setFiltroSemestre] = useState('')
+  const [filtroAno, setFiltroAno] = useState('')
 
   const [editando, setEditando] = useState(null)
   const [estadosEdit, setEstadosEdit] = useState({})
@@ -100,11 +101,14 @@ export default function Registros() {
     }
   }
 
+  const anosDisponiveis = [...new Set(registros.map(r => r.ano))].sort((a, b) => b - a)
+
   const lista = registros.filter(r => {
     const busca = filtroBusca.toLowerCase()
     const matchNome = r.nomeFuncionario.toLowerCase().includes(busca)
     const matchSem = filtroSemestre === '' || String(r.semestre) === filtroSemestre
-    return matchNome && matchSem
+    const matchAno = filtroAno === '' || String(r.ano) === filtroAno
+    return matchNome && matchSem && matchAno
   })
 
   const mesesEditando = editando ? MESES[editando.semestre] : []
@@ -121,10 +125,10 @@ export default function Registros() {
           <span className="card-title">Todos os Lançamentos</span>
           <button
             className="btn-success btn-sm"
-            onClick={() => window.open(urlExportarTodos(empresa.id), '_blank')}
-            disabled={registros.length === 0}
+            onClick={() => window.open(urlExportarTodos(empresa.id, { semestre: filtroSemestre, ano: filtroAno }), '_blank')}
+            disabled={lista.length === 0}
           >
-            ⬇ Exportar Todos (Excel)
+            ⬇ Exportar (Excel)
           </button>
         </div>
 
@@ -145,6 +149,15 @@ export default function Registros() {
               <option value="">Todos</option>
               <option value="1">1º Semestre</option>
               <option value="2">2º Semestre</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label htmlFor="filtro-ano">Ano</label>
+            <select id="filtro-ano" value={filtroAno} onChange={e => setFiltroAno(e.target.value)}>
+              <option value="">Todos</option>
+              {anosDisponiveis.map(a => (
+                <option key={a} value={String(a)}>{a}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -207,7 +220,6 @@ export default function Registros() {
         )}
       </div>
 
-      {/* Modal: detalhe */}
       {detalhe && (
         <Modal titulo={`Detalhes – ${detalhe.nomeFuncionario}`} onClose={() => setDetalhe(null)}>
           <p style={{ marginBottom: '0.75rem', color: 'var(--cinza-600)', fontSize: '0.88rem' }}>
@@ -243,7 +255,6 @@ export default function Registros() {
         </Modal>
       )}
 
-      {/* Modal: edição */}
       {editando && (
         <Modal
           titulo={`Editar – ${editando.nomeFuncionario}`}
