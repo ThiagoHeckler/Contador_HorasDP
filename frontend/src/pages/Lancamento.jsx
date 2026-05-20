@@ -11,20 +11,38 @@ const MESES = {
 const anoAtual = new Date().getFullYear()
 const ANOS = Array.from({ length: 6 }, (_, i) => anoAtual - 2 + i)
 
-function estadoMesInicial() {
+// ── Lançamento Simples ───────────────────────────────────────────────────────
+
+function estadoSimplesInicial() {
   return { tipo: 'credito', horas: '', minutos: '' }
 }
 
-function estadosMesesIniciais(semestre) {
-  return Object.fromEntries(MESES[semestre].map(m => [m, estadoMesInicial()]))
+function estadosSimplesIniciais(semestre) {
+  return Object.fromEntries(MESES[semestre].map(m => [m, estadoSimplesInicial()]))
 }
 
-function paraMinutos(estado) {
-  const h = parseInt(estado.horas) || 0
-  const m = parseInt(estado.minutos) || 0
-  const total = h * 60 + m
-  return estado.tipo === 'debito' ? -total : total
+function simplesParaMinutos(est) {
+  const total = (parseInt(est.horas) || 0) * 60 + (parseInt(est.minutos) || 0)
+  return est.tipo === 'debito' ? -total : total
 }
+
+// ── Lançamento Completo ──────────────────────────────────────────────────────
+
+function estadoCompletoInicial() {
+  return { credHoras: '', credMinutos: '', debHoras: '', debMinutos: '' }
+}
+
+function estadosCompletosIniciais(semestre) {
+  return Object.fromEntries(MESES[semestre].map(m => [m, estadoCompletoInicial()]))
+}
+
+function completoParaMinutos(est) {
+  const cred = (parseInt(est.credHoras) || 0) * 60 + (parseInt(est.credMinutos) || 0)
+  const deb  = (parseInt(est.debHoras)  || 0) * 60 + (parseInt(est.debMinutos)  || 0)
+  return cred - deb
+}
+
+// ── Utilitário ───────────────────────────────────────────────────────────────
 
 export function formatarHHMM(totalMin) {
   const neg = totalMin < 0
@@ -34,12 +52,115 @@ export function formatarHHMM(totalMin) {
   return (neg ? '-' : '') + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')
 }
 
+function clampMin(valor) {
+  const n = parseInt(valor)
+  return isNaN(n) ? '' : String(Math.min(59, Math.max(0, n)))
+}
+
+// ── Componente: card de mês — modo simples ───────────────────────────────────
+
+function MesCardSimples({ mes, estado, onChange }) {
+  const minTotal = simplesParaMinutos(estado)
+  return (
+    <div className={`mes-card ${estado.tipo}`}>
+      <div className="mes-nome">{mes}</div>
+      <div className="mes-tipo-toggle">
+        <button type="button"
+          className={`tipo-btn credito${estado.tipo === 'credito' ? ' ativo' : ''}`}
+          onClick={() => onChange('tipo', 'credito')}>+ Crédito</button>
+        <button type="button"
+          className={`tipo-btn debito${estado.tipo === 'debito' ? ' ativo' : ''}`}
+          onClick={() => onChange('tipo', 'debito')}>− Débito</button>
+      </div>
+      <div className="mes-inputs">
+        <div className="form-group">
+          <label>Horas</label>
+          <input type="number" min="0" placeholder="00" value={estado.horas}
+            onChange={e => onChange('horas', e.target.value)} />
+        </div>
+        <span className="sep-hhmm">:</span>
+        <div className="form-group">
+          <label>Min</label>
+          <input type="number" min="0" max="59" placeholder="00" value={estado.minutos}
+            onChange={e => onChange('minutos', clampMin(e.target.value))} />
+        </div>
+      </div>
+      <div className={`mes-total ${estado.tipo}`}>
+        {minTotal !== 0 ? (estado.tipo === 'debito' ? '-' : '+') : ''}{formatarHHMM(Math.abs(minTotal))}
+      </div>
+    </div>
+  )
+}
+
+// ── Componente: card de mês — modo completo ──────────────────────────────────
+
+function MesCardCompleto({ mes, estado, onChange }) {
+  const cred = (parseInt(estado.credHoras) || 0) * 60 + (parseInt(estado.credMinutos) || 0)
+  const deb  = (parseInt(estado.debHoras)  || 0) * 60 + (parseInt(estado.debMinutos)  || 0)
+  const saldo = cred - deb
+  const saldoTipo = saldo >= 0 ? 'credito' : 'debito'
+
+  return (
+    <div className={`mes-card-completo ${saldoTipo}`}>
+      <div className="mes-nome">{mes}</div>
+
+      <div className="mes-completo-linha credito-linha">
+        <span className="mes-completo-label credito-label">+ Crédito</span>
+        <div className="mes-inputs" style={{ flex: 1 }}>
+          <div className="form-group">
+            <label>Horas</label>
+            <input type="number" min="0" placeholder="00" value={estado.credHoras}
+              onChange={e => onChange('credHoras', e.target.value)} />
+          </div>
+          <span className="sep-hhmm">:</span>
+          <div className="form-group">
+            <label>Min</label>
+            <input type="number" min="0" max="59" placeholder="00" value={estado.credMinutos}
+              onChange={e => onChange('credMinutos', clampMin(e.target.value))} />
+          </div>
+        </div>
+        <span className="mes-completo-sub credito-sub">{formatarHHMM(cred)}</span>
+      </div>
+
+      <div className="mes-completo-linha debito-linha">
+        <span className="mes-completo-label debito-label">− Débito</span>
+        <div className="mes-inputs" style={{ flex: 1 }}>
+          <div className="form-group">
+            <label>Horas</label>
+            <input type="number" min="0" placeholder="00" value={estado.debHoras}
+              onChange={e => onChange('debHoras', e.target.value)} />
+          </div>
+          <span className="sep-hhmm">:</span>
+          <div className="form-group">
+            <label>Min</label>
+            <input type="number" min="0" max="59" placeholder="00" value={estado.debMinutos}
+              onChange={e => onChange('debMinutos', clampMin(e.target.value))} />
+          </div>
+        </div>
+        <span className="mes-completo-sub debito-sub">{formatarHHMM(deb)}</span>
+      </div>
+
+      <div className={`mes-completo-saldo ${saldoTipo}`}>
+        <span className="saldo-label">Saldo</span>
+        <span className="saldo-valor">{formatarHHMM(saldo)}</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Página principal ─────────────────────────────────────────────────────────
+
 export default function Lancamento() {
   const navigate = useNavigate()
   const { empresa } = useEmpresa()
+
+  const [modo, setModo] = useState('simples')
   const [funcionarios, setFuncionarios] = useState([])
   const [form, setForm] = useState({ funcionarioId: '', semestre: '1', ano: String(anoAtual) })
-  const [estados, setEstados] = useState(estadosMesesIniciais(1))
+
+  const [estadosSimples, setEstadosSimples] = useState(estadosSimplesIniciais(1))
+  const [estadosCompleto, setEstadosCompleto] = useState(estadosCompletosIniciais(1))
+
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
   const [loadingFunc, setLoadingFunc] = useState(true)
@@ -52,30 +173,35 @@ export default function Lancamento() {
   }, [empresa.id])
 
   function handleSemestre(e) {
-    const sem = e.target.value
-    setForm(p => ({ ...p, semestre: sem }))
-    setEstados(estadosMesesIniciais(Number(sem)))
+    const sem = Number(e.target.value)
+    setForm(p => ({ ...p, semestre: String(sem) }))
+    setEstadosSimples(estadosSimplesIniciais(sem))
+    setEstadosCompleto(estadosCompletosIniciais(sem))
   }
 
-  function handleEstado(mes, campo, valor) {
-    setEstados(p => ({ ...p, [mes]: { ...p[mes], [campo]: valor } }))
-  }
-
-  function handleMinutos(mes, valor) {
-    const num = parseInt(valor)
-    if (isNaN(num)) { handleEstado(mes, 'minutos', ''); return }
-    handleEstado(mes, 'minutos', String(Math.min(59, Math.max(0, num))))
+  function handleModo(novoModo) {
+    setModo(novoModo)
+    setErro('')
   }
 
   const mesesAtivos = MESES[Number(form.semestre)]
-  const totalMinutos = mesesAtivos.reduce((acc, m) => acc + paraMinutos(estados[m]), 0)
+
+  const minutosCalculados = Object.fromEntries(
+    mesesAtivos.map(m => [
+      m,
+      modo === 'simples'
+        ? simplesParaMinutos(estadosSimples[m])
+        : completoParaMinutos(estadosCompleto[m]),
+    ])
+  )
+
+  const totalMinutos = Object.values(minutosCalculados).reduce((acc, v) => acc + v, 0)
   const resultado = totalMinutos >= 0 ? 'positivo' : 'negativo'
 
   async function salvar(e) {
     e.preventDefault()
     setErro('')
     if (!form.funcionarioId) { setErro('Selecione um funcionário.'); return }
-    const minutosPayload = Object.fromEntries(mesesAtivos.map(m => [m, paraMinutos(estados[m])]))
     setSalvando(true)
     try {
       await criarRegistro({
@@ -83,7 +209,7 @@ export default function Lancamento() {
         empresaId: empresa.id,
         semestre: Number(form.semestre),
         ano: Number(form.ano),
-        minutos: minutosPayload,
+        minutos: minutosCalculados,
       })
       navigate('/registros')
     } catch (e) {
@@ -94,8 +220,10 @@ export default function Lancamento() {
   }
 
   function limpar() {
-    setForm({ funcionarioId: '', semestre: '1', ano: String(anoAtual) })
-    setEstados(estadosMesesIniciais(1))
+    const sem = Number(form.semestre)
+    setForm(p => ({ ...p, funcionarioId: '' }))
+    setEstadosSimples(estadosSimplesIniciais(sem))
+    setEstadosCompleto(estadosCompletosIniciais(sem))
     setErro('')
   }
 
@@ -104,6 +232,7 @@ export default function Lancamento() {
       <div className="page-title">📋 Lançamento de Horas</div>
 
       <form onSubmit={salvar}>
+        {/* Dados do lançamento */}
         <div className="card">
           <div className="card-title" style={{ marginBottom: '1rem' }}>Dados do Lançamento</div>
           {erro && <div className="alert alert-error">⚠ {erro}</div>}
@@ -152,64 +281,65 @@ export default function Lancamento() {
           </div>
         </div>
 
-        <div className="card">
-          <div className="card-title" style={{ marginBottom: '0.25rem' }}>Horas por Mês</div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--cinza-400)', marginBottom: '1rem' }}>
-            Selecione Crédito ou Débito e informe as horas e minutos de cada mês.
-          </p>
-
-          <div className="horas-grid-lancamento">
-            {mesesAtivos.map(mes => {
-              const est = estados[mes]
-              const minTotal = paraMinutos(est)
-              return (
-                <div key={mes} className={`mes-card ${est.tipo}`}>
-                  <div className="mes-nome">{mes}</div>
-                  <div className="mes-tipo-toggle">
-                    <button
-                      type="button"
-                      className={`tipo-btn credito${est.tipo === 'credito' ? ' ativo' : ''}`}
-                      onClick={() => handleEstado(mes, 'tipo', 'credito')}
-                    >+ Crédito</button>
-                    <button
-                      type="button"
-                      className={`tipo-btn debito${est.tipo === 'debito' ? ' ativo' : ''}`}
-                      onClick={() => handleEstado(mes, 'tipo', 'debito')}
-                    >− Débito</button>
-                  </div>
-                  <div className="mes-inputs">
-                    <div className="form-group">
-                      <label htmlFor={`h-${mes}`}>Horas</label>
-                      <input
-                        id={`h-${mes}`}
-                        type="number"
-                        min="0"
-                        placeholder="00"
-                        value={est.horas}
-                        onChange={e => handleEstado(mes, 'horas', e.target.value)}
-                      />
-                    </div>
-                    <span className="sep-hhmm">:</span>
-                    <div className="form-group">
-                      <label htmlFor={`m-${mes}`}>Min</label>
-                      <input
-                        id={`m-${mes}`}
-                        type="number"
-                        min="0"
-                        max="59"
-                        placeholder="00"
-                        value={est.minutos}
-                        onChange={e => handleMinutos(mes, e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className={`mes-total ${est.tipo}`}>
-                    {minTotal !== 0 ? (est.tipo === 'debito' ? '-' : '+') : ''}{formatarHHMM(Math.abs(minTotal))}
-                  </div>
-                </div>
-              )
-            })}
+        {/* Seletor de modo */}
+        <div className="card" style={{ padding: '1rem 1.5rem' }}>
+          <div className="modo-toggle-wrapper">
+            <span className="modo-toggle-label">Tipo de lançamento:</span>
+            <div className="modo-toggle">
+              <button
+                type="button"
+                className={`modo-btn${modo === 'simples' ? ' ativo' : ''}`}
+                onClick={() => handleModo('simples')}
+              >
+                Simples
+              </button>
+              <button
+                type="button"
+                className={`modo-btn${modo === 'completo' ? ' ativo' : ''}`}
+                onClick={() => handleModo('completo')}
+              >
+                Completo
+              </button>
+            </div>
+            <span className="modo-descricao">
+              {modo === 'simples'
+                ? 'Um valor por mês — informe se é crédito ou débito.'
+                : 'Dois valores por mês — crédito e débito; o saldo é calculado automaticamente.'}
+            </span>
           </div>
+        </div>
+
+        {/* Grade de meses */}
+        <div className="card">
+          <div className="card-title" style={{ marginBottom: '1rem' }}>Horas por Mês</div>
+
+          {modo === 'simples' ? (
+            <div className="horas-grid-lancamento">
+              {mesesAtivos.map(mes => (
+                <MesCardSimples
+                  key={mes}
+                  mes={mes}
+                  estado={estadosSimples[mes]}
+                  onChange={(campo, valor) =>
+                    setEstadosSimples(p => ({ ...p, [mes]: { ...p[mes], [campo]: valor } }))
+                  }
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="horas-grid-completo">
+              {mesesAtivos.map(mes => (
+                <MesCardCompleto
+                  key={mes}
+                  mes={mes}
+                  estado={estadosCompleto[mes]}
+                  onChange={(campo, valor) =>
+                    setEstadosCompleto(p => ({ ...p, [mes]: { ...p[mes], [campo]: valor } }))
+                  }
+                />
+              ))}
+            </div>
+          )}
 
           <div className={`resultado-box ${resultado}`}>
             <div>

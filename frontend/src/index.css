@@ -543,6 +543,133 @@ tbody td {
 .mes-total.credito { color: var(--verde); }
 .mes-total.debito  { color: var(--vermelho); }
 
+/* ── Seletor de modo (simples / completo) ── */
+.modo-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.modo-toggle-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--cinza-600);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.modo-toggle {
+  display: flex;
+  background: var(--cinza-100);
+  border-radius: var(--radius);
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.modo-btn {
+  background: transparent;
+  color: var(--cinza-600);
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background var(--transicao), color var(--transicao), box-shadow var(--transicao);
+}
+.modo-btn.ativo {
+  background: var(--branco);
+  color: var(--azul-escuro);
+  box-shadow: 0 1px 4px rgba(0,0,0,.12);
+}
+.modo-btn:hover:not(.ativo) { background: var(--cinza-200); }
+
+.modo-descricao {
+  font-size: 0.8rem;
+  color: var(--cinza-400);
+  font-style: italic;
+}
+
+/* ── Cards de mês — modo completo ── */
+.horas-grid-completo {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.mes-card-completo {
+  border: 1.5px solid var(--cinza-200);
+  border-radius: var(--radius);
+  padding: 0.85rem;
+  background: var(--cinza-50);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: border-color var(--transicao);
+}
+.mes-card-completo.credito { border-color: #a3d9b5; background: #f6fdf8; }
+.mes-card-completo.debito  { border-color: #f1aeb5; background: #fff8f8; }
+
+.mes-completo-linha {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 6px;
+}
+.credito-linha { background: rgba(212,237,218,.35); }
+.debito-linha  { background: rgba(248,215,218,.35); }
+
+.mes-completo-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  width: 52px;
+  flex-shrink: 0;
+  padding-bottom: 0.35rem;
+}
+.credito-label { color: var(--verde); }
+.debito-label  { color: var(--vermelho); }
+
+.mes-completo-sub {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding-bottom: 0.35rem;
+  min-width: 46px;
+  text-align: right;
+}
+.credito-sub { color: var(--verde); }
+.debito-sub  { color: var(--vermelho); }
+
+.mes-completo-saldo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.4rem 0.1rem;
+  border-top: 1px solid var(--cinza-200);
+}
+.saldo-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--cinza-400);
+}
+.saldo-valor {
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mes-completo-saldo.credito .saldo-valor { color: var(--verde); }
+.mes-completo-saldo.debito  .saldo-valor { color: var(--vermelho); }
+
 /* ── Tela de seleção de empresa ── */
 .selecao-empresa-page {
   min-height: 100vh;
@@ -662,9 +789,14 @@ tbody td {
 }
 
 /* ── Responsivo ── */
+@media (max-width: 900px) {
+  .horas-grid-completo { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 700px) {
   .horas-grid-lancamento { grid-template-columns: repeat(2, 1fr); }
+  .horas-grid-completo   { grid-template-columns: 1fr; }
   .header-empresa-nome { max-width: 140px; }
+  .modo-descricao { display: none; }
 }
 @media (max-width: 600px) {
   .horas-grid { grid-template-columns: repeat(2, 1fr); }
