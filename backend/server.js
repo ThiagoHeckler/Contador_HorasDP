@@ -283,16 +283,23 @@ app.get('/api/exportar/:id', async (req, res) => {
   const matricula = func?.matricula || '';
   const nomeEmpresa = empresa?.nome || '';
   const cnpjEmpresa = empresa?.cnpj || '';
+  const isCompleto = empresa?.tipoLancamento === 'completo';
+
+  // Modo completo: exibe apenas meses com lançamento; simples: todos os 6 meses
+  const todosMeses = MESES_SEMESTRE[registro.semestre];
+  const mesesExibir = isCompleto
+    ? todosMeses.filter(m => (registro.minutos[m] || 0) !== 0)
+    : todosMeses;
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Contador HorasDP';
   workbook.created = new Date();
   const sheet = workbook.addWorksheet('Horas Semestrais');
 
-  const corHeader   = '1F3A5F';
+  const corHeader    = '1F3A5F';
   const corSubHeader = '2E6DA4';
-  const corPositivo = 'D4EDDA';
-  const corNegativo = 'F8D7DA';
+  const corPositivo  = 'D4EDDA';
+  const corNegativo  = 'F8D7DA';
   const corAlternada = 'EBF3FB';
 
   const bordaThin = {
@@ -316,12 +323,16 @@ app.get('/api/exportar/:id', async (req, res) => {
 
   sheet.addRow([]);
 
+  const periodoLabel = isCompleto
+    ? `${registro.semestre}º Semestre de ${registro.ano} (lançamento completo)`
+    : `${registro.semestre}º Semestre de ${registro.ano}`;
+
   const infoRows = [
     ['Empresa', nomeEmpresa],
     ['CNPJ', cnpjEmpresa],
     ['Funcionário', nomeFuncionario],
     ['Matrícula', matricula || '—'],
-    ['Semestre', `${registro.semestre}º Semestre de ${registro.ano}`],
+    ['Período', periodoLabel],
   ];
   infoRows.forEach(([label, valor]) => {
     const row = sheet.addRow([label, valor]);
@@ -342,19 +353,25 @@ app.get('/api/exportar/:id', async (req, res) => {
   });
   headerRow.height = 28;
 
-  MESES_SEMESTRE[registro.semestre].forEach((mes, i) => {
-    const min = registro.minutos[mes] || 0;
-    const obs = min > 0 ? 'Crédito' : min < 0 ? 'Débito' : 'Neutro';
-    const row = sheet.addRow([mes, formatarHHMM(min), obs]);
-    const bg = i % 2 === 0 ? 'FFFFFFFF' : corAlternada;
-    row.eachCell(cell => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-      cell.border = bordaThin;
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    });
-    row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+  if (mesesExibir.length === 0) {
+    const row = sheet.addRow(['Nenhum lançamento registrado', '', '']);
+    row.getCell(1).font = { italic: true, color: { argb: 'FF888888' } };
     row.height = 22;
-  });
+  } else {
+    mesesExibir.forEach((mes, i) => {
+      const min = registro.minutos[mes] || 0;
+      const obs = min > 0 ? 'Crédito' : min < 0 ? 'Débito' : 'Neutro';
+      const row = sheet.addRow([mes, formatarHHMM(min), obs]);
+      const bg = i % 2 === 0 ? 'FFFFFFFF' : corAlternada;
+      row.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+        cell.border = bordaThin;
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+      row.height = 22;
+    });
+  }
 
   sheet.addRow([]);
 
@@ -381,6 +398,8 @@ app.get('/api/exportar/:id', async (req, res) => {
 });
 
 // ── Exportar todos (por empresa, com filtros opcionais de semestre e ano) ──────
+// Estrutura: uma linha por mês lançado.
+// Completo: apenas meses com valor ≠ 0. Simples: todos os meses do semestre.
 
 app.get('/api/exportar-todos', async (req, res) => {
   const { empresaId } = req.query;
@@ -394,50 +413,78 @@ app.get('/api/exportar-todos', async (req, res) => {
   if (anoFiltro) lista = lista.filter(r => r.ano === anoFiltro);
   if (lista.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado para os filtros aplicados' });
 
-  const mesesHeader = semestreFiltro ? MESES_SEMESTRE[semestreFiltro] : MESES_SEMESTRE[1];
+  // Expande cada registro em linhas por mês
+  const linhas = [];
+  lista.forEach(r => {
+    const func = dados.funcionarios.find(f => f.id === r.funcionarioId);
+    const empresa = dados.empresas.find(e => e.id === r.empresaId);
+    const isCompleto = empresa?.tipoLancamento === 'completo';
+    const todosMeses = MESES_SEMESTRE[r.semestre];
+    const meses = isCompleto
+      ? todosMeses.filter(m => (r.minutos?.[m] || 0) !== 0)
+      : todosMeses;
+
+    meses.forEach(mes => {
+      const min = r.minutos?.[mes] || 0;
+      linhas.push({
+        empresa: empresa?.nome || '',
+        funcionario: func?.nome || '',
+        matricula: func?.matricula || '',
+        ano: r.ano,
+        semestre: `${r.semestre}º Semestre`,
+        mes,
+        horas: formatarHHMM(min),
+        obs: min > 0 ? 'Crédito' : min < 0 ? 'Débito' : 'Neutro',
+        totalMinutos: r.totalMinutos,
+        resultado: r.resultado,
+        _registroId: r.id,
+      });
+    });
+  });
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Contador HorasDP';
   workbook.created = new Date();
   const sheet = workbook.addWorksheet('Registros de Horas');
-  const corHeader = '1F3A5F';
 
-  const headerRow = sheet.addRow(['Empresa', 'Funcionário', 'Matrícula', 'Semestre', 'Ano',
-    ...mesesHeader, 'Total', 'Resultado']);
+  const corHeader   = '1F3A5F';
+  const bordaThin = { top: { style: 'thin', color: { argb: 'FFBDBDBD' } }, left: { style: 'thin', color: { argb: 'FFBDBDBD' } }, bottom: { style: 'thin', color: { argb: 'FFBDBDBD' } }, right: { style: 'thin', color: { argb: 'FFBDBDBD' } } };
+
+  const headerRow = sheet.addRow(['Empresa', 'Funcionário', 'Matrícula', 'Ano', 'Semestre', 'Mês', 'Horas (HH:MM)', 'Observação']);
   headerRow.eachCell(cell => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corHeader } };
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    cell.border = bordaThin;
   });
   headerRow.height = 28;
 
-  lista.forEach((r, i) => {
-    const func = dados.funcionarios.find(f => f.id === r.funcionarioId);
-    const empresa = dados.empresas.find(e => e.id === r.empresaId);
-    const meses = MESES_SEMESTRE[r.semestre];
-    const row = sheet.addRow([
-      empresa?.nome || '',
-      func?.nome || '',
-      func?.matricula || '',
-      `${r.semestre}º Semestre`,
-      r.ano,
-      ...meses.map(m => formatarHHMM(r.minutos?.[m] || 0)),
-      formatarHHMM(r.totalMinutos || 0),
-      r.resultado === 'positivo' ? 'Positivo' : 'Negativo',
-    ]);
-    const bg = i % 2 === 0 ? 'FFFFFFFF' : 'EBF3FB';
+  // Agrupa linhas por registro para zebrar por bloco de funcionário/semestre
+  let ultimoId = null;
+  let blocoAtual = 0;
+  linhas.forEach(l => {
+    if (l._registroId !== ultimoId) { ultimoId = l._registroId; blocoAtual++; }
+    const bg = blocoAtual % 2 === 0 ? 'EBF3FB' : 'FFFFFFFF';
+    const row = sheet.addRow([l.empresa, l.funcionario, l.matricula, l.ano, l.semestre, l.mes, l.horas, l.obs]);
     row.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-      cell.border = { top: { style: 'thin', color: { argb: 'FFBDBDBD' } }, left: { style: 'thin', color: { argb: 'FFBDBDBD' } }, bottom: { style: 'thin', color: { argb: 'FFBDBDBD' } }, right: { style: 'thin', color: { argb: 'FFBDBDBD' } } };
+      cell.border = bordaThin;
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
     });
+    row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+    row.getCell(6).alignment = { vertical: 'middle', horizontal: 'left' };
     row.height = 22;
   });
 
-  sheet.columns.forEach(col => { col.width = 18; });
-  sheet.getColumn(1).width = 28;
+  sheet.getColumn(1).width = 30;
   sheet.getColumn(2).width = 28;
+  sheet.getColumn(3).width = 16;
+  sheet.getColumn(4).width = 10;
+  sheet.getColumn(5).width = 18;
+  sheet.getColumn(6).width = 16;
+  sheet.getColumn(7).width = 18;
+  sheet.getColumn(8).width = 14;
 
   const sufixo = [semestreFiltro ? `${semestreFiltro}S` : '', anoFiltro || ''].filter(Boolean).join('_');
   const nomeArquivo = `registros_horas${sufixo ? `_${sufixo}` : ''}.xlsx`;
