@@ -788,6 +788,79 @@ tbody td {
   gap: 0.85rem;
 }
 
+/* ── Empresa card tipo badge ── */
+.empresa-card-cnpj { color: var(--cinza-400); }
+.empresa-card-tipo {
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.73rem;
+}
+.tipo-simples { background: var(--azul-claro); color: var(--azul-medio); }
+.tipo-completo { background: #e8f5e9; color: #2e7d32; }
+
+/* ── Tipo lançamento radio cards ── */
+.tipo-lancamento-opcoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.tipo-lancamento-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.85rem 1rem;
+  border: 1.5px solid var(--cinza-200);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color var(--transicao), background var(--transicao);
+  background: var(--cinza-50);
+}
+.tipo-lancamento-card input[type="radio"] { display: none; }
+.tipo-lancamento-card:hover { border-color: var(--azul-medio); background: var(--azul-claro); }
+.tipo-lancamento-card.selecionado { border-color: var(--azul-medio); background: var(--azul-claro); }
+.tipo-card-titulo { font-weight: 700; font-size: 0.9rem; color: var(--azul-escuro); }
+.tipo-card-desc { font-size: 0.78rem; color: var(--cinza-400); line-height: 1.4; }
+
+/* ── Lançamento completo ── */
+.lancamento-completo-linhas {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.lancamento-completo-bloco {
+  flex: 1;
+  border: 1.5px solid var(--cinza-200);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.credito-bloco { border-color: #a3d9b5; background: #f0faf4; }
+.debito-bloco  { border-color: #f5b7b1; background: #fdf3f2; }
+.lcb-titulo {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+.credito-titulo { color: var(--verde); }
+.debito-titulo  { color: var(--vermelho); }
+.lcb-separador {
+  align-self: center;
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: var(--cinza-400);
+  padding: 0 0.25rem;
+  margin-top: 1.5rem;
+}
+.lcb-subtotal {
+  margin-top: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.credito-sub { color: var(--verde); }
+.debito-sub  { color: var(--vermelho); }
+
 /* ── Responsivo ── */
 @media (max-width: 900px) {
   .horas-grid-completo { grid-template-columns: repeat(2, 1fr); }
@@ -805,4 +878,7 @@ tbody td {
   .brand-text { display: none; }
   .main-content { padding: 1rem; }
   .header-empresa { display: none; }
+  .lancamento-completo-linhas { flex-direction: column; }
+  .lcb-separador { align-self: center; margin-top: 0; }
+  .tipo-lancamento-opcoes { grid-template-columns: 1fr; }
 }

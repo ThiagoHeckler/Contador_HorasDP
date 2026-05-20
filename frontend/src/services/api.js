@@ -25,6 +25,8 @@ export const deletarFuncionario = (id) => request(`/funcionarios/${id}`, { metho
 // Registros
 export const getRegistros = (empresaId) => request(`/registros?empresaId=${empresaId}`)
 export const getRegistro = (id) => request(`/registros/${id}`)
+export const buscarRegistro = ({ empresaId, funcionarioId, semestre, ano }) =>
+  request(`/registros/buscar?empresaId=${empresaId}&funcionarioId=${funcionarioId}&semestre=${semestre}&ano=${ano}`)
 export const criarRegistro = (body) => request('/registros', { method: 'POST', body: JSON.stringify(body) })
 export const atualizarRegistro = (id, body) => request(`/registros/${id}`, { method: 'PUT', body: JSON.stringify(body) })
 export const deletarRegistro = (id) => request(`/registros/${id}`, { method: 'DELETE' })

@@ -16,7 +16,7 @@ export default function SelecionarEmpresa() {
   const [empresas, setEmpresas] = useState([])
   const [loading, setLoading] = useState(true)
   const [mostraCadastro, setMostraCadastro] = useState(false)
-  const [form, setForm] = useState({ nome: '', cnpj: '', codigo: '' })
+  const [form, setForm] = useState({ nome: '', cnpj: '', codigo: '', tipoLancamento: 'simples' })
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
@@ -100,6 +100,9 @@ export default function SelecionarEmpresa() {
                     <div className="empresa-card-info">
                       <span className="empresa-card-codigo">{emp.codigo}</span>
                       <span className="empresa-card-cnpj">{emp.cnpj}</span>
+                      <span className={`empresa-card-tipo ${emp.tipoLancamento === 'completo' ? 'tipo-completo' : 'tipo-simples'}`}>
+                        {emp.tipoLancamento === 'completo' ? 'Completo' : 'Simples'}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -150,6 +153,25 @@ export default function SelecionarEmpresa() {
                   value={form.codigo}
                   onChange={e => setForm(p => ({ ...p, codigo: e.target.value.toUpperCase() }))}
                 />
+              </div>
+              <div className="form-group">
+                <label>Tipo de lançamento *</label>
+                <div className="tipo-lancamento-opcoes">
+                  <label className={`tipo-lancamento-card${form.tipoLancamento === 'simples' ? ' selecionado' : ''}`}>
+                    <input type="radio" name="tipoLancamento" value="simples"
+                      checked={form.tipoLancamento === 'simples'}
+                      onChange={() => setForm(p => ({ ...p, tipoLancamento: 'simples' }))} />
+                    <span className="tipo-card-titulo">Simples</span>
+                    <span className="tipo-card-desc">Lança todos os meses do semestre de uma vez, com crédito ou débito por mês.</span>
+                  </label>
+                  <label className={`tipo-lancamento-card${form.tipoLancamento === 'completo' ? ' selecionado' : ''}`}>
+                    <input type="radio" name="tipoLancamento" value="completo"
+                      checked={form.tipoLancamento === 'completo'}
+                      onChange={() => setForm(p => ({ ...p, tipoLancamento: 'completo' }))} />
+                    <span className="tipo-card-titulo">Completo</span>
+                    <span className="tipo-card-desc">Lança mês a mês com crédito e débito separados; o saldo é calculado automaticamente.</span>
+                  </label>
+                </div>
               </div>
               <div className="form-actions" style={{ marginTop: '1rem' }}>
                 <button type="submit" className="btn-primary" disabled={salvando}>

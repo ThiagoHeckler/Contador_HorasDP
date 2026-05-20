@@ -54,7 +54,7 @@ app.get('/api/empresas/:id', (req, res) => {
 });
 
 app.post('/api/empresas', (req, res) => {
-  const { nome, cnpj, codigo } = req.body;
+  const { nome, cnpj, codigo, tipoLancamento } = req.body;
   if (!nome?.trim()) return res.status(400).json({ erro: 'Nome é obrigatório' });
   if (!cnpj?.trim()) return res.status(400).json({ erro: 'CNPJ é obrigatório' });
   if (!codigo?.trim()) return res.status(400).json({ erro: 'Código é obrigatório' });
@@ -74,6 +74,7 @@ app.post('/api/empresas', (req, res) => {
     nome: nome.trim(),
     cnpj: cnpj.trim(),
     codigo: codigo.trim().toUpperCase(),
+    tipoLancamento: tipoLancamento === 'completo' ? 'completo' : 'simples',
     criadoEm: new Date().toISOString(),
   };
   dados.empresas.push(empresa);
@@ -82,7 +83,7 @@ app.post('/api/empresas', (req, res) => {
 });
 
 app.put('/api/empresas/:id', (req, res) => {
-  const { nome, cnpj, codigo } = req.body;
+  const { nome, cnpj, codigo, tipoLancamento } = req.body;
   const dados = lerDados();
   const idx = dados.empresas.findIndex(e => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ erro: 'Empresa não encontrada' });
@@ -98,7 +99,13 @@ app.put('/api/empresas/:id', (req, res) => {
   const duplicadoCodigo = dados.empresas.find(e => e.codigo.toLowerCase() === codigo.trim().toLowerCase() && e.id !== req.params.id);
   if (duplicadoCodigo) return res.status(409).json({ erro: 'Já existe outra empresa com este código' });
 
-  dados.empresas[idx] = { ...dados.empresas[idx], nome: nome.trim(), cnpj: cnpj.trim(), codigo: codigo.trim().toUpperCase() };
+  dados.empresas[idx] = {
+    ...dados.empresas[idx],
+    nome: nome.trim(),
+    cnpj: cnpj.trim(),
+    codigo: codigo.trim().toUpperCase(),
+    tipoLancamento: tipoLancamento === 'completo' ? 'completo' : 'simples',
+  };
   salvarDados(dados);
   res.json(dados.empresas[idx]);
 });
@@ -170,6 +177,24 @@ app.get('/api/registros', (req, res) => {
     return { ...r, nomeFuncionario: func?.nome || 'Desconhecido', matricula: func?.matricula || '', nomeEmpresa: empresa?.nome || '' };
   });
   res.json(registros);
+});
+
+// Busca registro específico por funcionário + semestre + ano (deve vir antes de /:id)
+app.get('/api/registros/buscar', (req, res) => {
+  const { empresaId, funcionarioId, semestre, ano } = req.query;
+  if (!funcionarioId || !semestre || !ano) {
+    return res.status(400).json({ erro: 'funcionarioId, semestre e ano são obrigatórios' });
+  }
+  const dados = lerDados();
+  const registro = dados.registros.find(r =>
+    r.funcionarioId === funcionarioId &&
+    r.semestre === Number(semestre) &&
+    r.ano === Number(ano) &&
+    (!empresaId || r.empresaId === empresaId)
+  );
+  if (!registro) return res.status(404).json({ erro: 'Registro não encontrado' });
+  const func = dados.funcionarios.find(f => f.id === registro.funcionarioId);
+  res.json({ ...registro, nomeFuncionario: func?.nome || '', matricula: func?.matricula || '' });
 });
 
 app.get('/api/registros/:id', (req, res) => {
