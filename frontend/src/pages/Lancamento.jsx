@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getFuncionarios, criarRegistro } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 
 const MESES = {
   1: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho'],
@@ -35,6 +36,7 @@ export function formatarHHMM(totalMin) {
 
 export default function Lancamento() {
   const navigate = useNavigate()
+  const { empresa } = useEmpresa()
   const [funcionarios, setFuncionarios] = useState([])
   const [form, setForm] = useState({ funcionarioId: '', semestre: '1', ano: String(anoAtual) })
   const [estados, setEstados] = useState(estadosMesesIniciais(1))
@@ -43,11 +45,11 @@ export default function Lancamento() {
   const [loadingFunc, setLoadingFunc] = useState(true)
 
   useEffect(() => {
-    getFuncionarios()
+    getFuncionarios(empresa.id)
       .then(setFuncionarios)
       .catch(e => setErro(e.message))
       .finally(() => setLoadingFunc(false))
-  }, [])
+  }, [empresa.id])
 
   function handleSemestre(e) {
     const sem = e.target.value
@@ -60,7 +62,6 @@ export default function Lancamento() {
   }
 
   function handleMinutos(mes, valor) {
-    // Garante 0-59
     const num = parseInt(valor)
     if (isNaN(num)) { handleEstado(mes, 'minutos', ''); return }
     handleEstado(mes, 'minutos', String(Math.min(59, Math.max(0, num))))
@@ -79,6 +80,7 @@ export default function Lancamento() {
     try {
       await criarRegistro({
         ...form,
+        empresaId: empresa.id,
         semestre: Number(form.semestre),
         ano: Number(form.ano),
         minutos: minutosPayload,
@@ -163,24 +165,18 @@ export default function Lancamento() {
               return (
                 <div key={mes} className={`mes-card ${est.tipo}`}>
                   <div className="mes-nome">{mes}</div>
-
                   <div className="mes-tipo-toggle">
                     <button
                       type="button"
                       className={`tipo-btn credito${est.tipo === 'credito' ? ' ativo' : ''}`}
                       onClick={() => handleEstado(mes, 'tipo', 'credito')}
-                    >
-                      + Crédito
-                    </button>
+                    >+ Crédito</button>
                     <button
                       type="button"
                       className={`tipo-btn debito${est.tipo === 'debito' ? ' ativo' : ''}`}
                       onClick={() => handleEstado(mes, 'tipo', 'debito')}
-                    >
-                      − Débito
-                    </button>
+                    >− Débito</button>
                   </div>
-
                   <div className="mes-inputs">
                     <div className="form-group">
                       <label htmlFor={`h-${mes}`}>Horas</label>
@@ -207,7 +203,6 @@ export default function Lancamento() {
                       />
                     </div>
                   </div>
-
                   <div className={`mes-total ${est.tipo}`}>
                     {minTotal !== 0 ? (est.tipo === 'debito' ? '-' : '+') : ''}{formatarHHMM(Math.abs(minTotal))}
                   </div>

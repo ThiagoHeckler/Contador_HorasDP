@@ -20,28 +20,128 @@ const MESES_SEMESTRE = {
 function lerDados() {
   if (!fs.existsSync(DATA_FILE)) {
     fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ funcionarios: [], registros: [] }, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ empresas: [], funcionarios: [], registros: [] }, null, 2));
   }
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+  const dados = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+  if (!dados.empresas) dados.empresas = [];
+  return dados;
 }
 
 function salvarDados(dados) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(dados, null, 2));
 }
 
-// Funcionários
-app.get('/api/funcionarios', (req, res) => {
+function formatarHHMM(totalMin) {
+  const neg = totalMin < 0;
+  const abs = Math.abs(totalMin);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return (neg ? '-' : '') + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+// ── Empresas ────────────────────────────────────────────────────────────────
+
+app.get('/api/empresas', (req, res) => {
   const dados = lerDados();
-  res.json(dados.funcionarios);
+  res.json(dados.empresas);
+});
+
+app.get('/api/empresas/:id', (req, res) => {
+  const dados = lerDados();
+  const empresa = dados.empresas.find(e => e.id === req.params.id);
+  if (!empresa) return res.status(404).json({ erro: 'Empresa não encontrada' });
+  res.json(empresa);
+});
+
+app.post('/api/empresas', (req, res) => {
+  const { nome, cnpj, codigo } = req.body;
+  if (!nome?.trim()) return res.status(400).json({ erro: 'Nome é obrigatório' });
+  if (!cnpj?.trim()) return res.status(400).json({ erro: 'CNPJ é obrigatório' });
+  if (!codigo?.trim()) return res.status(400).json({ erro: 'Código é obrigatório' });
+
+  const dados = lerDados();
+
+  const cnpjLimpo = cnpj.replace(/\D/g, '');
+  if (dados.empresas.find(e => e.cnpj.replace(/\D/g, '') === cnpjLimpo)) {
+    return res.status(409).json({ erro: 'Já existe uma empresa com este CNPJ' });
+  }
+  if (dados.empresas.find(e => e.codigo.toLowerCase() === codigo.trim().toLowerCase())) {
+    return res.status(409).json({ erro: 'Já existe uma empresa com este código' });
+  }
+
+  const empresa = {
+    id: uuidv4(),
+    nome: nome.trim(),
+    cnpj: cnpj.trim(),
+    codigo: codigo.trim().toUpperCase(),
+    criadoEm: new Date().toISOString(),
+  };
+  dados.empresas.push(empresa);
+  salvarDados(dados);
+  res.status(201).json(empresa);
+});
+
+app.put('/api/empresas/:id', (req, res) => {
+  const { nome, cnpj, codigo } = req.body;
+  const dados = lerDados();
+  const idx = dados.empresas.findIndex(e => e.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ erro: 'Empresa não encontrada' });
+
+  if (!nome?.trim()) return res.status(400).json({ erro: 'Nome é obrigatório' });
+  if (!cnpj?.trim()) return res.status(400).json({ erro: 'CNPJ é obrigatório' });
+  if (!codigo?.trim()) return res.status(400).json({ erro: 'Código é obrigatório' });
+
+  const cnpjLimpo = cnpj.replace(/\D/g, '');
+  const duplicadoCnpj = dados.empresas.find(e => e.cnpj.replace(/\D/g, '') === cnpjLimpo && e.id !== req.params.id);
+  if (duplicadoCnpj) return res.status(409).json({ erro: 'Já existe outra empresa com este CNPJ' });
+
+  const duplicadoCodigo = dados.empresas.find(e => e.codigo.toLowerCase() === codigo.trim().toLowerCase() && e.id !== req.params.id);
+  if (duplicadoCodigo) return res.status(409).json({ erro: 'Já existe outra empresa com este código' });
+
+  dados.empresas[idx] = { ...dados.empresas[idx], nome: nome.trim(), cnpj: cnpj.trim(), codigo: codigo.trim().toUpperCase() };
+  salvarDados(dados);
+  res.json(dados.empresas[idx]);
+});
+
+app.delete('/api/empresas/:id', (req, res) => {
+  const dados = lerDados();
+  const idx = dados.empresas.findIndex(e => e.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ erro: 'Empresa não encontrada' });
+  dados.empresas.splice(idx, 1);
+  dados.funcionarios = dados.funcionarios.filter(f => f.empresaId !== req.params.id);
+  dados.registros = dados.registros.filter(r => r.empresaId !== req.params.id);
+  salvarDados(dados);
+  res.json({ mensagem: 'Empresa removida' });
+});
+
+// ── Funcionários ─────────────────────────────────────────────────────────────
+
+app.get('/api/funcionarios', (req, res) => {
+  const { empresaId } = req.query;
+  const dados = lerDados();
+  const lista = empresaId
+    ? dados.funcionarios.filter(f => f.empresaId === empresaId)
+    : dados.funcionarios;
+  res.json(lista);
 });
 
 app.post('/api/funcionarios', (req, res) => {
-  const { nome, matricula } = req.body;
-  if (!nome || !nome.trim()) {
-    return res.status(400).json({ erro: 'Nome é obrigatório' });
-  }
+  const { nome, matricula, empresaId } = req.body;
+  if (!nome?.trim()) return res.status(400).json({ erro: 'Nome é obrigatório' });
+  if (!empresaId) return res.status(400).json({ erro: 'empresaId é obrigatório' });
+
   const dados = lerDados();
-  const funcionario = { id: uuidv4(), nome: nome.trim(), matricula: matricula?.trim() || '', criadoEm: new Date().toISOString() };
+  if (!dados.empresas.find(e => e.id === empresaId)) {
+    return res.status(404).json({ erro: 'Empresa não encontrada' });
+  }
+
+  const funcionario = {
+    id: uuidv4(),
+    empresaId,
+    nome: nome.trim(),
+    matricula: matricula?.trim() || '',
+    criadoEm: new Date().toISOString(),
+  };
   dados.funcionarios.push(funcionario);
   salvarDados(dados);
   res.status(201).json(funcionario);
@@ -57,12 +157,17 @@ app.delete('/api/funcionarios/:id', (req, res) => {
   res.json({ mensagem: 'Funcionário removido' });
 });
 
-// Registros de horas
+// ── Registros ─────────────────────────────────────────────────────────────────
+
 app.get('/api/registros', (req, res) => {
+  const { empresaId } = req.query;
   const dados = lerDados();
-  const registros = dados.registros.map(r => {
+  let lista = dados.registros;
+  if (empresaId) lista = lista.filter(r => r.empresaId === empresaId);
+  const registros = lista.map(r => {
     const func = dados.funcionarios.find(f => f.id === r.funcionarioId);
-    return { ...r, nomeFuncionario: func?.nome || 'Desconhecido', matricula: func?.matricula || '' };
+    const empresa = dados.empresas.find(e => e.id === r.empresaId);
+    return { ...r, nomeFuncionario: func?.nome || 'Desconhecido', matricula: func?.matricula || '', nomeEmpresa: empresa?.nome || '' };
   });
   res.json(registros);
 });
@@ -76,8 +181,8 @@ app.get('/api/registros/:id', (req, res) => {
 });
 
 app.post('/api/registros', (req, res) => {
-  const { funcionarioId, semestre, ano, minutos } = req.body;
-  if (!funcionarioId || !semestre || !ano || !minutos) {
+  const { funcionarioId, empresaId, semestre, ano, minutos } = req.body;
+  if (!funcionarioId || !empresaId || !semestre || !ano || !minutos) {
     return res.status(400).json({ erro: 'Dados incompletos' });
   }
   const dados = lerDados();
@@ -87,16 +192,18 @@ app.post('/api/registros', (req, res) => {
   const meses = MESES_SEMESTRE[semestre];
   const minutosValidos = {};
   meses.forEach(mes => { minutosValidos[mes] = Math.round(Number(minutos[mes])) || 0; });
-
   const totalMinutos = Object.values(minutosValidos).reduce((acc, m) => acc + m, 0);
 
-  const duplicado = dados.registros.find(r => r.funcionarioId === funcionarioId && r.semestre === Number(semestre) && r.ano === Number(ano));
+  const duplicado = dados.registros.find(r =>
+    r.funcionarioId === funcionarioId && r.semestre === Number(semestre) && r.ano === Number(ano)
+  );
   if (duplicado) {
     return res.status(409).json({ erro: `Já existe registro para ${func.nome} no ${semestre}º semestre de ${ano}` });
   }
 
   const registro = {
     id: uuidv4(),
+    empresaId,
     funcionarioId,
     semestre: Number(semestre),
     ano: Number(ano),
@@ -138,64 +245,60 @@ app.delete('/api/registros/:id', (req, res) => {
   res.json({ mensagem: 'Registro removido' });
 });
 
-function formatarHHMM(totalMin) {
-  const neg = totalMin < 0;
-  const abs = Math.abs(totalMin);
-  const h = Math.floor(abs / 60);
-  const m = abs % 60;
-  return (neg ? '-' : '') + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-}
+// ── Exportar Excel individual ─────────────────────────────────────────────────
 
-// Exportar Excel
 app.get('/api/exportar/:id', async (req, res) => {
   const dados = lerDados();
   const registro = dados.registros.find(r => r.id === req.params.id);
   if (!registro) return res.status(404).json({ erro: 'Registro não encontrado' });
 
   const func = dados.funcionarios.find(f => f.id === registro.funcionarioId);
+  const empresa = dados.empresas.find(e => e.id === registro.empresaId);
   const nomeFuncionario = func?.nome || 'Desconhecido';
   const matricula = func?.matricula || '';
+  const nomeEmpresa = empresa?.nome || '';
+  const cnpjEmpresa = empresa?.cnpj || '';
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Contador HorasDP';
   workbook.created = new Date();
-
   const sheet = workbook.addWorksheet('Horas Semestrais');
 
-  const corHeader = '1F3A5F';
+  const corHeader   = '1F3A5F';
   const corSubHeader = '2E6DA4';
   const corPositivo = 'D4EDDA';
   const corNegativo = 'F8D7DA';
   const corAlternada = 'EBF3FB';
 
-  const estilo = (bold, size, cor, fgColor) => ({
-    font: { bold, size: size || 11, color: { argb: cor || 'FF000000' } },
-    fill: fgColor ? { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } } : undefined,
-    alignment: { vertical: 'middle', horizontal: 'center' },
-    border: {
-      top: { style: 'thin', color: { argb: 'FFBDBDBD' } },
-      left: { style: 'thin', color: { argb: 'FFBDBDBD' } },
-      bottom: { style: 'thin', color: { argb: 'FFBDBDBD' } },
-      right: { style: 'thin', color: { argb: 'FFBDBDBD' } },
-    },
-  });
+  const bordaThin = {
+    top: { style: 'thin', color: { argb: 'FFBDBDBD' } },
+    left: { style: 'thin', color: { argb: 'FFBDBDBD' } },
+    bottom: { style: 'thin', color: { argb: 'FFBDBDBD' } },
+    right: { style: 'thin', color: { argb: 'FFBDBDBD' } },
+  };
+
+  const aplicarHeader = (cell, texto, fgColor, fontSize = 11) => {
+    cell.value = texto;
+    cell.font = { bold: true, size: fontSize, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fgColor } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = bordaThin;
+  };
 
   sheet.mergeCells('A1:C1');
-  const titulo = sheet.getCell('A1');
-  titulo.value = 'CONTADOR DE HORAS SEMESTRAIS - DEPARTAMENTO PESSOAL';
-  Object.assign(titulo, estilo(true, 14, 'FFFFFFFF', corHeader));
-
+  aplicarHeader(sheet.getCell('A1'), 'CONTADOR DE HORAS SEMESTRAIS - DEPARTAMENTO PESSOAL', corHeader, 14);
   sheet.getRow(1).height = 36;
 
   sheet.addRow([]);
 
-  const dadosFuncionario = [
+  const infoRows = [
+    ['Empresa', nomeEmpresa],
+    ['CNPJ', cnpjEmpresa],
     ['Funcionário', nomeFuncionario],
     ['Matrícula', matricula || '—'],
     ['Semestre', `${registro.semestre}º Semestre de ${registro.ano}`],
   ];
-
-  dadosFuncionario.forEach(([label, valor]) => {
+  infoRows.forEach(([label, valor]) => {
     const row = sheet.addRow([label, valor]);
     row.getCell(1).font = { bold: true, size: 11 };
     row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F0F4F8' } };
@@ -207,19 +310,21 @@ app.get('/api/exportar/:id', async (req, res) => {
 
   const headerRow = sheet.addRow(['Mês', 'Horas (HH:MM)', 'Observação']);
   headerRow.eachCell(cell => {
-    Object.assign(cell, estilo(true, 12, 'FFFFFFFF', corSubHeader));
+    cell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corSubHeader } };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = bordaThin;
   });
   headerRow.height = 28;
 
-  const meses = MESES_SEMESTRE[registro.semestre];
-  meses.forEach((mes, i) => {
+  MESES_SEMESTRE[registro.semestre].forEach((mes, i) => {
     const min = registro.minutos[mes] || 0;
     const obs = min > 0 ? 'Crédito' : min < 0 ? 'Débito' : 'Neutro';
     const row = sheet.addRow([mes, formatarHHMM(min), obs]);
     const bg = i % 2 === 0 ? 'FFFFFFFF' : corAlternada;
     row.eachCell(cell => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
-      cell.border = estilo(false).border;
+      cell.border = bordaThin;
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
     });
     row.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -228,12 +333,12 @@ app.get('/api/exportar/:id', async (req, res) => {
 
   sheet.addRow([]);
 
-  const totalRow = sheet.addRow(['TOTAL DE HORAS', formatarHHMM(registro.totalMinutos), registro.resultado === 'positivo' ? '✔ Saldo Positivo' : '✖ Saldo Negativo']);
   const corTotal = registro.resultado === 'positivo' ? corPositivo : corNegativo;
+  const totalRow = sheet.addRow(['TOTAL DE HORAS', formatarHHMM(registro.totalMinutos), registro.resultado === 'positivo' ? '✔ Saldo Positivo' : '✖ Saldo Negativo']);
   totalRow.eachCell(cell => {
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corTotal.replace('#', '') } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corTotal } };
     cell.font = { bold: true, size: 12 };
-    cell.border = estilo(false).border;
+    cell.border = bordaThin;
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
   });
   totalRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -246,24 +351,27 @@ app.get('/api/exportar/:id', async (req, res) => {
   const nomeArquivo = `horas_${nomeFuncionario.replace(/\s+/g, '_')}_${registro.semestre}S${registro.ano}.xlsx`;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', `attachment; filename="${nomeArquivo}"`);
-
   await workbook.xlsx.write(res);
   res.end();
 });
 
-// Exportar todos os registros em um único Excel
+// ── Exportar todos (por empresa) ──────────────────────────────────────────────
+
 app.get('/api/exportar-todos', async (req, res) => {
+  const { empresaId } = req.query;
   const dados = lerDados();
-  if (dados.registros.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado' });
+  let lista = dados.registros;
+  if (empresaId) lista = lista.filter(r => r.empresaId === empresaId);
+  if (lista.length === 0) return res.status(404).json({ erro: 'Nenhum registro encontrado' });
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Contador HorasDP';
   workbook.created = new Date();
-
   const sheet = workbook.addWorksheet('Todos os Registros');
   const corHeader = '1F3A5F';
 
-  const headerRow = sheet.addRow(['Funcionário', 'Matrícula', 'Semestre', 'Ano', ...Object.values(MESES_SEMESTRE).flat().slice(0, 6), 'Total', 'Resultado']);
+  const headerRow = sheet.addRow(['Empresa', 'Funcionário', 'Matrícula', 'Semestre', 'Ano',
+    ...MESES_SEMESTRE[1], 'Total', 'Resultado']);
   headerRow.eachCell(cell => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corHeader } };
@@ -272,16 +380,17 @@ app.get('/api/exportar-todos', async (req, res) => {
   });
   headerRow.height = 28;
 
-  dados.registros.forEach((r, i) => {
+  lista.forEach((r, i) => {
     const func = dados.funcionarios.find(f => f.id === r.funcionarioId);
+    const empresa = dados.empresas.find(e => e.id === r.empresaId);
     const meses = MESES_SEMESTRE[r.semestre];
-    const minMeses = meses.map(m => formatarHHMM(r.minutos?.[m] || 0));
     const row = sheet.addRow([
+      empresa?.nome || '',
       func?.nome || '',
       func?.matricula || '',
       `${r.semestre}º Semestre`,
       r.ano,
-      ...minMeses,
+      ...meses.map(m => formatarHHMM(r.minutos?.[m] || 0)),
       formatarHHMM(r.totalMinutos || 0),
       r.resultado === 'positivo' ? 'Positivo' : 'Negativo',
     ]);
@@ -296,6 +405,7 @@ app.get('/api/exportar-todos', async (req, res) => {
 
   sheet.columns.forEach(col => { col.width = 18; });
   sheet.getColumn(1).width = 28;
+  sheet.getColumn(2).width = 28;
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment; filename="todos_registros_horas.xlsx"');

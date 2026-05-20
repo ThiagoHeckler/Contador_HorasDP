@@ -1,10 +1,16 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { EmpresaProvider, useEmpresa } from './context/EmpresaContext'
 import Header from './components/Header'
 import Funcionarios from './pages/Funcionarios'
 import Lancamento from './pages/Lancamento'
 import Registros from './pages/Registros'
+import SelecionarEmpresa from './pages/SelecionarEmpresa'
 
-export default function App() {
+function AppInner() {
+  const { empresa } = useEmpresa()
+
+  if (!empresa) return <SelecionarEmpresa />
+
   return (
     <div className="layout">
       <Header />
@@ -17,5 +23,13 @@ export default function App() {
         </Routes>
       </main>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <EmpresaProvider>
+      <AppInner />
+    </EmpresaProvider>
   )
 }

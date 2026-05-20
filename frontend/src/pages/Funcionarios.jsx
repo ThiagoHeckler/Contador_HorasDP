@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { getFuncionarios, criarFuncionario, deletarFuncionario } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 import Modal from '../components/Modal'
 
 export default function Funcionarios() {
+  const { empresa } = useEmpresa()
   const [lista, setLista] = useState([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
@@ -14,7 +16,7 @@ export default function Funcionarios() {
   async function carregar() {
     try {
       setLoading(true)
-      setLista(await getFuncionarios())
+      setLista(await getFuncionarios(empresa.id))
     } catch (e) {
       setErro(e.message)
     } finally {
@@ -22,7 +24,7 @@ export default function Funcionarios() {
     }
   }
 
-  useEffect(() => { carregar() }, [])
+  useEffect(() => { carregar() }, [empresa.id])
 
   function abrirModal() {
     setForm({ nome: '', matricula: '' })
@@ -36,7 +38,7 @@ export default function Funcionarios() {
     setSalvando(true)
     setErro('')
     try {
-      await criarFuncionario(form)
+      await criarFuncionario({ ...form, empresaId: empresa.id })
       setShowModal(false)
       carregar()
     } catch (e) {
@@ -73,7 +75,7 @@ export default function Funcionarios() {
         ) : lista.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">👤</div>
-            <p>Nenhum funcionário cadastrado.</p>
+            <p>Nenhum funcionário cadastrado para esta empresa.</p>
           </div>
         ) : (
           <div className="table-wrapper">
@@ -105,7 +107,6 @@ export default function Funcionarios() {
         )}
       </div>
 
-      {/* Modal: novo funcionário */}
       {showModal && (
         <Modal
           titulo="Novo Funcionário"
@@ -148,7 +149,6 @@ export default function Funcionarios() {
         </Modal>
       )}
 
-      {/* Modal: confirmar remoção */}
       {confirmarId && (
         <Modal
           titulo="Confirmar Remoção"

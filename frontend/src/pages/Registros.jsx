@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getRegistros, deletarRegistro, atualizarRegistro } from '../services/api'
 import { urlExportarRegistro, urlExportarTodos } from '../services/api'
+import { useEmpresa } from '../context/EmpresaContext'
 import Modal from '../components/Modal'
 import { formatarHHMM } from './Lancamento'
 
@@ -27,6 +28,7 @@ function paraMinutos(estado) {
 }
 
 export default function Registros() {
+  const { empresa } = useEmpresa()
   const [registros, setRegistros] = useState([])
   const [loading, setLoading] = useState(true)
   const [erro, setErro] = useState('')
@@ -44,13 +46,13 @@ export default function Registros() {
   const carregar = useCallback(async () => {
     try {
       setLoading(true)
-      setRegistros(await getRegistros())
+      setRegistros(await getRegistros(empresa.id))
     } catch (e) {
       setErro(e.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [empresa.id])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -119,7 +121,7 @@ export default function Registros() {
           <span className="card-title">Todos os Lançamentos</span>
           <button
             className="btn-success btn-sm"
-            onClick={() => window.open(urlExportarTodos(), '_blank')}
+            onClick={() => window.open(urlExportarTodos(empresa.id), '_blank')}
             disabled={registros.length === 0}
           >
             ⬇ Exportar Todos (Excel)
@@ -218,17 +220,14 @@ export default function Registros() {
                 <tr><th>Mês</th><th>Horas (HH:MM)</th></tr>
               </thead>
               <tbody>
-                {MESES[detalhe.semestre].map(m => {
-                  const min = detalhe.minutos?.[m] || 0
-                  return (
-                    <tr key={m}>
-                      <td>{m}</td>
-                      <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                        {formatarHHMM(min)}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {MESES[detalhe.semestre].map(m => (
+                  <tr key={m}>
+                    <td>{m}</td>
+                    <td style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {formatarHHMM(detalhe.minutos?.[m] || 0)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -270,39 +269,22 @@ export default function Registros() {
                 <div key={mes} className={`mes-card ${est.tipo}`}>
                   <div className="mes-nome">{mes}</div>
                   <div className="mes-tipo-toggle">
-                    <button
-                      type="button"
-                      className={`tipo-btn credito${est.tipo === 'credito' ? ' ativo' : ''}`}
-                      onClick={() => handleEstadoEdit(mes, 'tipo', 'credito')}
-                    >+ Crédito</button>
-                    <button
-                      type="button"
-                      className={`tipo-btn debito${est.tipo === 'debito' ? ' ativo' : ''}`}
-                      onClick={() => handleEstadoEdit(mes, 'tipo', 'debito')}
-                    >− Débito</button>
+                    <button type="button" className={`tipo-btn credito${est.tipo === 'credito' ? ' ativo' : ''}`}
+                      onClick={() => handleEstadoEdit(mes, 'tipo', 'credito')}>+ Crédito</button>
+                    <button type="button" className={`tipo-btn debito${est.tipo === 'debito' ? ' ativo' : ''}`}
+                      onClick={() => handleEstadoEdit(mes, 'tipo', 'debito')}>− Débito</button>
                   </div>
                   <div className="mes-inputs">
                     <div className="form-group">
                       <label>Horas</label>
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="00"
-                        value={est.horas}
-                        onChange={e => handleEstadoEdit(mes, 'horas', e.target.value)}
-                      />
+                      <input type="number" min="0" placeholder="00" value={est.horas}
+                        onChange={e => handleEstadoEdit(mes, 'horas', e.target.value)} />
                     </div>
                     <span className="sep-hhmm">:</span>
                     <div className="form-group">
                       <label>Min</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="59"
-                        placeholder="00"
-                        value={est.minutos}
-                        onChange={e => handleMinutosEdit(mes, e.target.value)}
-                      />
+                      <input type="number" min="0" max="59" placeholder="00" value={est.minutos}
+                        onChange={e => handleMinutosEdit(mes, e.target.value)} />
                     </div>
                   </div>
                   <div className={`mes-total ${est.tipo}`}>
@@ -324,7 +306,6 @@ export default function Registros() {
         </Modal>
       )}
 
-      {/* Modal: confirmar remoção */}
       {confirmarId && (
         <Modal
           titulo="Confirmar Remoção"

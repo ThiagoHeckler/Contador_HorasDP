@@ -135,11 +135,27 @@ label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  min-height: 60px;
   box-shadow: var(--sombra);
   position: sticky;
   top: 0;
   z-index: 100;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .header-brand {
@@ -149,16 +165,44 @@ label {
   font-weight: 700;
   font-size: 1rem;
   letter-spacing: .02em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
+.header-brand .icon { font-size: 1.3rem; }
 
-.header-brand span.icon {
-  font-size: 1.3rem;
-}
-
-.header-nav {
+.header-empresa {
   display: flex;
-  gap: 0.25rem;
+  flex-direction: column;
+  border-left: 1px solid rgba(255,255,255,.2);
+  padding-left: 1rem;
+  min-width: 0;
 }
+.header-empresa-nome {
+  font-weight: 700;
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+.header-empresa-cnpj {
+  font-size: 0.72rem;
+  opacity: .65;
+  letter-spacing: .02em;
+}
+
+.btn-alterar-empresa {
+  background: rgba(255,255,255,.12);
+  color: var(--branco);
+  border: 1px solid rgba(255,255,255,.25);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  transition: background var(--transicao);
+}
+.btn-alterar-empresa:hover { background: rgba(255,255,255,.22); }
 
 .nav-link {
   color: rgba(255,255,255,.75);
@@ -499,14 +543,134 @@ tbody td {
 .mes-total.credito { color: var(--verde); }
 .mes-total.debito  { color: var(--vermelho); }
 
+/* ── Tela de seleção de empresa ── */
+.selecao-empresa-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--azul-escuro) 0%, #2E6DA4 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.selecao-empresa-box {
+  background: var(--branco);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--sombra-lg);
+  width: 100%;
+  max-width: 520px;
+  padding: 2rem;
+  animation: slideUp .2s ease;
+}
+
+.selecao-header {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+.selecao-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.selecao-titulo {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--azul-escuro);
+  margin-bottom: 0.2rem;
+}
+.selecao-sub {
+  font-size: 0.88rem;
+  color: var(--cinza-400);
+}
+
+.selecao-secao {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--cinza-600);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 0.85rem;
+}
+
+.selecao-busca {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.empresa-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-bottom: 1.25rem;
+  padding-right: 2px;
+}
+
+.empresa-card-btn {
+  width: 100%;
+  background: var(--cinza-50);
+  border: 1.5px solid var(--cinza-200);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transicao), background var(--transicao), box-shadow var(--transicao);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-family: inherit;
+  font-weight: 400;
+}
+.empresa-card-btn:hover {
+  border-color: var(--azul-medio);
+  background: var(--azul-claro);
+  box-shadow: 0 2px 6px rgba(46,109,164,.12);
+}
+.empresa-card-btn:active { transform: scale(.985); }
+
+.empresa-card-nome {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--azul-escuro);
+}
+.empresa-card-info {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--cinza-400);
+}
+.empresa-card-codigo {
+  background: var(--azul-claro);
+  color: var(--azul-medio);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.73rem;
+}
+
+.selecao-nova-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 0.65rem;
+}
+
+.selecao-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
 /* ── Responsivo ── */
 @media (max-width: 700px) {
   .horas-grid-lancamento { grid-template-columns: repeat(2, 1fr); }
+  .header-empresa-nome { max-width: 140px; }
 }
 @media (max-width: 600px) {
   .horas-grid { grid-template-columns: repeat(2, 1fr); }
   .horas-grid-lancamento { grid-template-columns: repeat(2, 1fr); }
   .form-grid { grid-template-columns: 1fr; }
-  .header-brand span:not(.icon) { display: none; }
+  .brand-text { display: none; }
   .main-content { padding: 1rem; }
+  .header-empresa { display: none; }
 }
